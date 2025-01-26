@@ -3,7 +3,7 @@ game 'gta5'
 
 author 'Dr.Firegod, SirAlpakaLeon'
 description 'Fivem Roleplay HUD'
-version '2.0'
+version '2.1'
 
 ui_page 'html/ui.html'
 
