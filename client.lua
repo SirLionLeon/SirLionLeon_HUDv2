@@ -192,7 +192,7 @@ RegisterCommand(Config.HudsettingsCommand, function()
     SendNUIMessage({ action = dragEnabled and 'enableDrag' or 'disableDrag' })
 end, false)
 
-RegisterCommand(Config.Hudsettingsresett, function()
+RegisterCommand(Config.Hudsettingsreset, function()
     SendNUIMessage({ action = 'resetHUD' })
 end, false)
 
@@ -204,4 +204,100 @@ RegisterNUICallback('closeUI', function(data, cb)
 end)
 
 TriggerEvent('chat:addSuggestion', '/'..Config.HudsettingsCommand, 'Verschiebt den HUD an die gewünschte Position')
-TriggerEvent('chat:addSuggestion', '/'..Config.Hudsettingsresett, 'Setzte die Position von dem HUD Auf normaleinstellungen Zurück')
+TriggerEvent('chat:addSuggestion', '/'..Config.Hudsettingsreset, 'Setzte die Position von dem HUD Auf normaleinstellungen Zurück')
+
+local rawPostalData = LoadResourceFile(GetCurrentResourceName(), GetResourceMetadata(GetCurrentResourceName(), 'postal_file'))
+local postalList = json.decode(rawPostalData)
+
+local closestPostal = nil
+local postalBlip = nil
+
+Citizen.CreateThread(function()
+    while true do
+        local xPos, yPos = table.unpack(GetEntityCoords(GetPlayerPed(-1)))
+
+        local closestDistance = -1
+        local closestIndex = -1
+        for i, postal in ipairs(postalList) do
+            local distance = (xPos - postal.x) ^ 2 + (yPos - postal.y) ^ 2
+            if closestDistance == -1 or distance < closestDistance then
+                closestIndex = i
+                closestDistance = distance
+            end
+        end
+
+        if closestIndex ~= -1 then
+            local distance = math.sqrt(closestDistance)
+            closestPostal = {i = closestIndex, d = distance}
+        end
+
+        if postalBlip then
+            local blipCoords = {x = postalBlip.p.x, y = postalBlip.p.y}
+            local distance = (blipCoords.x - xPos) ^ 2 + (blipCoords.y - yPos) ^ 2
+            if distance < Config.blip.distToDelete ^ 2 then
+                RemoveBlip(postalBlip.hndl)
+                postalBlip = nil
+            end
+        end
+
+        Wait(100)
+    end
+end)
+
+Citizen.CreateThread(function()
+    while true do
+        if closestPostal and not IsHudHidden() then
+            local postalText = Config.text.format:format(postalList[closestPostal.i].code, closestPostal.d)
+            Citizen.Wait(100)
+            TriggerEvent('nearest_postal_hud', postalText)
+        end
+        Wait(0)
+    end
+end)
+
+RegisterCommand('p', function(source, args, rawCommand)
+    if #args < 1 then
+        if postalBlip then
+            RemoveBlip(postalBlip.hndl)
+            postalBlip = nil
+            TriggerEvent('chat:addMessage', {
+                color = {255, 0, 0},
+                args = {'Postals', Config.blip.deleteText}
+            })
+        end
+        return
+    end
+
+    local postalCode = string.upper(args[1])
+    local foundPostal = nil
+    for _, postal in ipairs(postalList) do
+        if string.upper(postal.code) == postalCode then
+            foundPostal = postal
+            break
+        end
+    end
+
+    if foundPostal then
+        if postalBlip then
+            RemoveBlip(postalBlip.hndl)
+        end
+        postalBlip = {hndl = AddBlipForCoord(foundPostal.x, foundPostal.y, 0.0), p = foundPostal}
+        SetBlipRoute(postalBlip.hndl, true)
+        SetBlipSprite(postalBlip.hndl, Config.blip.sprite)
+        SetBlipColour(postalBlip.hndl, Config.blip.color)
+        SetBlipRouteColour(postalBlip.hndl, Config.blip.color)
+        BeginTextCommandSetBlipName('STRING')
+        AddTextComponentSubstringPlayerName(Config.blip.blipText:format(postalBlip.p.code))
+        EndTextCommandSetBlipName(postalBlip.hndl)
+
+        TriggerEvent('chat:addMessage', {
+            color = {255, 0, 0},
+            args = {'Postals', Config.blip.drawRouteText:format(foundPostal.code)}
+        })
+    else
+        TriggerEvent('chat:addMessage', {
+            color = {255, 0, 0},
+            args = {'Postals', Config.blip.notExistText}
+        })
+    end
+end)

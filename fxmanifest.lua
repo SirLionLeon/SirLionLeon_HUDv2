@@ -28,3 +28,6 @@ shared_scripts {
 	'config.lua',
 	'devmode.lua'
 }
+local postalFile = 'postals.json'
+file(postalFile)
+postal_file(postalFile)
