@@ -1,7 +1,7 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'Dr.Firegod, SirAlpakaLeon'
+author 'SirLionLeon'
 description 'Fivem Roleplay HUD'
 version '2.1'
 
